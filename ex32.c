@@ -19,28 +19,28 @@ typedef struct Student {
     char resultCompare[NAME];
 } Student;
 
-void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path,struct dirent *pDirent) {
+void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path, struct dirent *pDirent) {
     DIR *pDir;
     int i = 0;
     int length = 0;
-    int flag =0;
+    int flag = 0;
     ssize_t charToRead;
     int fd = open(path, O_RDONLY);
     char buffer[1];
-    while((charToRead = read(fd,buffer, sizeof(buffer)))!= 0){
-        if(!flag){
+    while ((charToRead = read(fd, buffer, sizeof(buffer))) != 0) {
+        if (!flag) {
             info[i][length] = *buffer;
-            flag=1;
+            flag = 1;
             length++;
         }
-        while(buffer[0] != '\n'){
-            charToRead = read(fd,buffer, sizeof(buffer));
+        while (buffer[0] != '\n') {
+            charToRead = read(fd, buffer, sizeof(buffer));
             info[i][length] = *buffer;
             length++;
         }
-        info[i][length-1] = '\0';
+        info[i][length - 1] = '\0';
         i++;
-        flag =0;
+        flag = 0;
         length = 0;
     }
 }
@@ -51,7 +51,7 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
     pid = fork();
     char *outPutFileTxt;
 
-    outPutFileTxt= strcat(outputFile,".txt");
+    //outPutFileTxt= strcat(outputFile,".txt");
 
     char *arguments[5];
 
@@ -62,20 +62,20 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
     arguments[4] = NULL;
     if (pid == 0) {
         int result = execvp("./comp.out", arguments);
-        switch(result){
-            case 1:{
+        switch (result) {
+            case 1: {
                 oneStudent->grade = 60;
-                strcpy(oneStudent->resultCompare,"BAD_OUTPUT");
+                strcpy(oneStudent->resultCompare, "BAD_OUTPUT");
                 break;
             }
-            case 2:{
+            case 2: {
                 oneStudent->grade = 80;
-                strcpy(oneStudent->resultCompare,"SIMILAR_OUTPUT");
+                strcpy(oneStudent->resultCompare, "SIMILAR_OUTPUT");
                 break;
             }
-            case 3:{
+            case 3: {
                 oneStudent->grade = 100;
-                strcpy(oneStudent->resultCompare,"GREAT_JOB");
+                strcpy(oneStudent->resultCompare, "GREAT_JOB");
                 break;
             }
             default:
@@ -87,10 +87,11 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
     }
 
 }
-void execute(char *path, char *inputFile, char *outputFile,Student *oneStudent) {
+
+void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent) {
     char *outPutFileTxt;
-    int in,out;
-    outPutFileTxt= strcat(outputFile,".txt");
+    int in, out;
+    outPutFileTxt = strcat(outputFile, ".txt");
     in = open(inputFile, O_RDWR);
     out = open(outputFile, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
     if (in == FAIL || out == FAIL) {
@@ -108,7 +109,7 @@ void execute(char *path, char *inputFile, char *outputFile,Student *oneStudent) 
     arguments[2] = NULL;
 
     if (pid == 0) {
-        if (execvp(arguments[0],arguments) == FAIL) {
+        if (execvp(arguments[0], arguments) == FAIL) {
             fprintf(stderr, "Can not run the exe");
             exit(FAIL);
         }
@@ -116,7 +117,7 @@ void execute(char *path, char *inputFile, char *outputFile,Student *oneStudent) 
         pid_t pidProcess = waitpid(pid, NULL, WNOHANG);
         if (pidProcess == FAIL)
             fprintf(stderr, "Can not compile this c file");
-        compareFiles(outPutFileTxt,outputFile,oneStudent);
+        compareFiles(outPutFileTxt, outputFile, oneStudent);
     }
 
 }
@@ -135,7 +136,7 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
         int result = execvp(arguments[0], arguments);
         if (result == FAIL) {
             oneStudent->grade = 0;
-            strcpy(oneStudent->resultCompare,"COMPILATION_ERROR");
+            strcpy(oneStudent->resultCompare, "COMPILATION_ERROR");
             fprintf(stderr, "Can not compile this c file");
             exit(FAIL);
         }
@@ -152,7 +153,8 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
 }
 
 
-int handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student,int i) {
+int
+handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student, int i) {
     struct dirent *pDirent;
     DIR *pDir;
     //int i = 0;
@@ -162,33 +164,33 @@ int handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputF
     if ((pDir = opendir(directoryName)) == NULL)
         exit(1);
 
-    while(directoryName[length]!='\0'){
+    while (directoryName[length] != '\0') {
         length++;
     }
 
     while ((pDirent = readdir(pDir)) != NULL) {
 
-        if ((directoryName[length-1]!='c') && (directoryName[length-2]!='.') && pDirent->d_type == DT_DIR) {
+        if ((directoryName[length - 1] != 'c') && (directoryName[length - 2] != '.') && pDirent->d_type == DT_DIR) {
             //firstCCheck = 0;
 
-            if (strcmp(pDirent->d_name,".") == 0 || strcmp(pDirent->d_name, "..") == 0) {
+            if (strcmp(pDirent->d_name, ".") == 0 || strcmp(pDirent->d_name, "..") == 0) {
                 continue;
             }
             strcpy(insideDir, directoryName);
             strcat(insideDir, "/");
             strcat(insideDir, pDirent->d_name);
-            handleDirectory(directoryName, inputFile, outputFile, directoryName, student,i);
+            handleDirectory(directoryName, inputFile, outputFile, directoryName, student, i);
 
         } else if (pDirent->d_type == DT_REG) {
-            if(strcmp(strrchr(pDirent->d_name, '.'),".c") == 0)
-            //else if ((directoryName[length-1]=='c' )&&(directoryName[length-2]=='.') && pDirent->d_type == DT_REG) {
+            if (strcmp(strrchr(pDirent->d_name, '.'), ".c") == 0)
+                //else if ((directoryName[length-1]=='c' )&&(directoryName[length-2]=='.') && pDirent->d_type == DT_REG) {
 
-            strcpy(student->name, pDirent->d_name);//updating the name of the student
+                strcpy(student->name, pDirent->d_name);//updating the name of the student
             strcat(directoryName, "/");
             strcat(directoryName, pDirent->d_name);
             compile(directoryName, inputFile, outputFile, path, student);
 
-        // it is not the first time and there is not a c file
+            // it is not the first time and there is not a c file
         } else {
             strcpy(student->name, pDirent->d_name);//updating the name of the student
             student->grade = 0;
@@ -223,20 +225,19 @@ char *resultCompare(int option) {
 }
 */
 
-void makeResultCSVFile(Student **students, int numOfStudents){
+void makeResultCSVFile(Student **students, int numOfStudents) {
     int index;
     int fdCsv = open("results.csv", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-    if(fdCsv == FAIL)
-    {
+    if (fdCsv == FAIL) {
         fprintf(stderr, "Can not create result.csv file");
         exit(FAIL);
-    }
-    else {
+    } else {
         char line[STUDENTS];
-        for(index = 0;index < numOfStudents; index++)
+        for (index = 0; index < numOfStudents; index++)
             memset(line, '\0', STUDENTS);
-            snprintf(line, sizeof(line), "%s,%d,%s\n", students[index]->name, students[index]->grade, students[index]->resultCompare);
-            write(fdCsv, line, STUDENTS);
+        snprintf(line, sizeof(line), "%s,%d,%s\n", students[index]->name, students[index]->grade,
+                 students[index]->resultCompare);
+        write(fdCsv, line, STUDENTS);
         close(fdCsv);
     }
 }
@@ -251,7 +252,7 @@ int main(int argc, char **argv) {
         struct dirent *pDirent;
         char *dir, *inputFile, *outputFile;
         char info[CONFIGURATION][STUDENTS];
-        char path[PATH],tempDir[STUDENTS];
+        char path[PATH], tempDir[STUDENTS];
         char correctOutput[17] = "correctOutput.txt";
         Student *students[STUDENTS];
         int numOfStudents = 0;
@@ -268,21 +269,21 @@ int main(int argc, char **argv) {
             exit(FAIL);
 
         while ((pDirent = readdir(pDir)) != NULL) {
-            if (strcmp(pDirent->d_name,"..") == 0 || strcmp(pDirent->d_name, ".") == 0) {
+            if (strcmp(pDirent->d_name, "..") == 0 || strcmp(pDirent->d_name, ".") == 0) {
                 continue;
             }
-            strcpy(tempDir,info[0]);
-            strcat(tempDir,"/");
-            strcat(tempDir,pDirent->d_name);
+            strcpy(tempDir, info[0]);
+            strcat(tempDir, "/");
+            strcat(tempDir, pDirent->d_name);
             //strcpy(students[i]->name,'\0');
-            students[i] =  (Student *) malloc (sizeof(Student));
-            numOfStudents = handleDirectory(tempDir, info[1], info[2], path, students[i],i);
+            students[i] = (Student *) malloc(sizeof(Student));
+            numOfStudents = handleDirectory(tempDir, info[1], info[2], path, students[i], i);
             i++;
         }
 
         makeResultCSVFile(students, numOfStudents);
 
-        for(j = 0;j<i;j++){
+        for (j = 0; j < i; j++) {
             free(students[i]);
         }
 
