@@ -4,7 +4,6 @@
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 #include <wait.h>
 
 #define CONFIGURATION 3
@@ -15,7 +14,7 @@
 
 
 typedef struct Student {
-    char name[NAME];
+    char name[STUDENTS];
     int grade;
     char resultCompare[NAME];
 } Student;
@@ -93,7 +92,7 @@ void execute(char *path, char *inputFile, char *outputFile,Student *oneStudent) 
     int in,out;
     outPutFileTxt= strcat(outputFile,".txt");
     in = open(inputFile, O_RDWR);
-    out = open(outputFile, O_RDWR);
+    out = open(outputFile, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
     if (in == FAIL || out == FAIL) {
         fprintf(stderr, "Can not open the input/output files");
         exit(FAIL);
@@ -105,7 +104,7 @@ void execute(char *path, char *inputFile, char *outputFile,Student *oneStudent) 
     pid = fork();
     char *arguments[3];
     arguments[0] = "a.out";
-    arguments[1] = "a.out";
+    arguments[1] = inputFile;
     arguments[2] = NULL;
 
     if (pid == 0) {
@@ -128,7 +127,7 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
     char *arguments[3];
 
     arguments[0] = "gcc";
-    arguments[1] = path;
+    arguments[1] = cFile;
     arguments[2] = NULL;
     pid_t pid;
     pid = fork();
@@ -153,10 +152,10 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
 }
 
 
-int handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *students[STUDENTS],int firstCCheck) {
+int handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student,int i) {
     struct dirent *pDirent;
     DIR *pDir;
-    int i = 0;
+    //int i = 0;
     int length = 0;
 
     char insideDir[STUDENTS], upDirectory[STUDENTS];
@@ -169,28 +168,36 @@ int handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputF
 
     while ((pDirent = readdir(pDir)) != NULL) {
 
-        if ((directoryName[length-1]!='c' )&&(directoryName[length-2]!='.') && firstCCheck) {
-            firstCCheck = 0;
+        if ((directoryName[length-1]!='c') && (directoryName[length-2]!='.') && pDirent->d_type == DT_DIR) {
+            //firstCCheck = 0;
+
+            if (strcmp(pDirent->d_name,".") == 0 || strcmp(pDirent->d_name, "..") == 0) {
+                continue;
+            }
             strcpy(insideDir, directoryName);
             strcat(insideDir, "/");
             strcat(insideDir, pDirent->d_name);
-            handleDirectory(directoryName, inputFile, outputFile, directoryName, students, firstCCheck);
+            handleDirectory(directoryName, inputFile, outputFile, directoryName, student,i);
 
-        } else if ((directoryName[length-1]=='c' )&&(directoryName[length-2]=='.') && !firstCCheck) {
-            strcpy(students[i]->name, pDirent->d_name);//updating the name of the student
+        } else if (pDirent->d_type == DT_REG) {
+            if(strcmp(strrchr(pDirent->d_name, '.'),".c") == 0)
+            //else if ((directoryName[length-1]=='c' )&&(directoryName[length-2]=='.') && pDirent->d_type == DT_REG) {
+
+            strcpy(student->name, pDirent->d_name);//updating the name of the student
             strcat(directoryName, "/");
             strcat(directoryName, pDirent->d_name);
-            compile(pDirent->d_name, inputFile, outputFile, path, students[i]);
+            compile(directoryName, inputFile, outputFile, path, student);
 
-        // it is not the first time ant there is not a c file
+        // it is not the first time and there is not a c file
         } else {
-            strcpy(students[i]->name, pDirent->d_name);//updating the name of the student
-            students[i]->grade = 0;
-            strcpy(students[i]->resultCompare, "NO_C_FILE");
+            strcpy(student->name, pDirent->d_name);//updating the name of the student
+            student->grade = 0;
+            strcpy(student->resultCompare, "NO_C_FILE");
         }
-        i++;
-        return i;//signify how many students their are
+        //i++;
+
     }
+    //return i;//signify how many students their are
 }
 
 
@@ -248,7 +255,8 @@ int main(int argc, char **argv) {
         char correctOutput[17] = "correctOutput.txt";
         Student *students[STUDENTS];
         int numOfStudents = 0;
-        int firstCCheck = 1;
+        int i = 0;
+        int j;
         makeConfigurationFile(info, argv[1], pDirent);
 
         dir = info[0];
@@ -266,10 +274,17 @@ int main(int argc, char **argv) {
             strcpy(tempDir,info[0]);
             strcat(tempDir,"/");
             strcat(tempDir,pDirent->d_name);
-            numOfStudents = handleDirectory(tempDir, info[1], info[2], path, students,firstCCheck);
+            //strcpy(students[i]->name,'\0');
+            students[i] =  (Student *) malloc (sizeof(Student));
+            numOfStudents = handleDirectory(tempDir, info[1], info[2], path, students[i],i);
+            i++;
         }
 
         makeResultCSVFile(students, numOfStudents);
+
+        for(j = 0;j<i;j++){
+            free(students[i]);
+        }
 
         return 0;
     }
