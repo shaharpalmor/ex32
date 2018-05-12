@@ -19,6 +19,7 @@ typedef struct Student {
     char resultCompare[NAME];
 } Student;
 
+
 void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path, struct dirent *pDirent) {
     DIR *pDir;
     int i = 0;
@@ -57,10 +58,10 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
     arguments[2] = "myFile.txt";
     arguments[3] = NULL;
     if (pid == 0) {
-        execvp(arguments[0],arguments);
+        execvp(arguments[0], arguments);
     } else {
         int result;
-        waitpid(pid,&result,0);
+        waitpid(pid, &result, 0);
         result = WEXITSTATUS(result);
         switch (result) {
             case 1: {
@@ -96,12 +97,12 @@ void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent)
         exit(FAIL);
     }
     //set the inputFile is the input for the cFile, as well as the output cFile
-    if(dup2(in, 0) == FAIL){
+    if (dup2(in, 0) == FAIL) {
         fprintf(stderr, "ERROR IN SYSTEM CALL");
         exit(FAIL);
     }
 
-    if(dup2(out, 1) == FAIL){
+    if (dup2(out, 1) == FAIL) {
         fprintf(stderr, "ERROR IN SYSTEM CALL");
         exit(FAIL);
     }
@@ -145,7 +146,7 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
         }
     } else {// fathers process
         int status;
-        if (waitpid(pid, &status, 0)<0 || WEXITSTATUS(status) != 0) {
+        if (waitpid(pid, &status, 0) < 0 || WEXITSTATUS(status) != 0) {
             //TODO
             fprintf(stderr, "Can not wait for this c file");
         }
@@ -158,15 +159,16 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
 }
 
 
-void handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student, int i) {
+int
+handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student, int i) {
     struct dirent *pDirent;
     DIR *pDir;
     //int i = 0;
     int length = 0;
 
     char insideDir[STUDENTS], upDirectory[STUDENTS];
-    char *pInsideDir = insideDir,*pUpDirectory = upDirectory; //TODO delete
-    if ((pDir = opendir(directoryName)) == NULL)
+    char *pInsideDir = insideDir, *pUpDirectory = upDirectory; //TODO delete
+    if ((pDir = opendir(directoryName)) == NULL) // TODO closedir
         exit(1);
 
     while (directoryName[length] != '\0') {
@@ -184,32 +186,37 @@ void handleDirectory(char directoryName[STUDENTS], char *inputFile, char *output
             strcpy(insideDir, directoryName);
             strcat(insideDir, "/");
             strcat(insideDir, pDirent->d_name);
-            handleDirectory(insideDir, inputFile, outputFile, directoryName, student, i);
-
+            int res = handleDirectory(insideDir, inputFile, outputFile, directoryName, student, i);
+            if (res)
+                return 1;
             //TODO one finding it is a directory - update the details get to the else some how
 
         } else if (pDirent->d_type == DT_REG) {
             int nameLength = strlen(pDirent->d_name);
             //char *a = pDirent->d_name; //TODO delete
-            if ((pDirent->d_name[nameLength-1] == 'c') && (pDirent->d_name[nameLength - 2] == '.')){
-                strcpy(student->name, pDirent->d_name);//updating the name of the student
+            if ((pDirent->d_name[nameLength - 1] == 'c') && (pDirent->d_name[nameLength - 2] == '.')) {
+                char *studentName = (char *)malloc(FILENAME_MAX * sizeof(char));
+                char *name;
+                strcpy(studentName, directoryName);
+                name = strtok(studentName, "/");
+
+                while (name != NULL) {
+                    strcpy(upDirectory, name);
+                    name = strtok(NULL, "/");
+                }
+
+                strcpy(student->name, upDirectory);//updating the name of the student
                 strcat(directoryName, "/");
                 strcat(directoryName, pDirent->d_name);
                 compile(directoryName, inputFile, outputFile, path, student);
+                free(studentName);
+                return 1;
             }
             // it is not a c file and we ended up in a directory
-        } else {
-            strcpy(student->name, pDirent->d_name); //updating the name of the student
-            student->grade = 0;
-            strcpy(student->resultCompare, "NO_C_FILE");
         }
-
-
     }
-    //return i;//signify how many students their are
+    return 0;
 }
-
-
 
 
 void makeResultCSVFile(Student **students, int numOfStudents) {
@@ -219,12 +226,15 @@ void makeResultCSVFile(Student **students, int numOfStudents) {
         fprintf(stderr, "Can not create result.csv file");
         exit(FAIL);
     } else {
-        char line[STUDENTS];
-        for (index = 0; index < numOfStudents; index++)
-            memset(line, '\0', STUDENTS);
-        snprintf(line, sizeof(line), "%s,%d,%s\n", students[index]->name, students[index]->grade,
-                 students[index]->resultCompare);
-        write(fdCsv, line, STUDENTS);
+        dup2(fdCsv, 1);
+        char line[STUDENTS] = {'\0'};
+        for (index = 0; index < numOfStudents; index++) {
+            //memset(line, '\0', STUDENTS);
+            printf("%s,%d,%s\n", students[index]->name, students[index]->grade,
+                   students[index]->resultCompare);
+        }
+
+        //write(fdCsv, line, STUDENTS);
         close(fdCsv);
     }
 }
@@ -264,7 +274,12 @@ int main(int argc, char **argv) {
             strcat(tempDir, pDirent->d_name);
             //strcpy(students[i]->name,'\0');
             students[i] = (Student *) malloc(sizeof(Student));
-            handleDirectory(tempDir, info[1], info[2], path, students[i], i);
+            int wasCFile = handleDirectory(tempDir, info[1], info[2], path, students[i], i);
+            if (!wasCFile) {
+                strcpy(students[i]->name, pDirent->d_name); //updating the name of the student
+                students[i]->grade = 0;
+                strcpy(students[i]->resultCompare, "NO_C_FILE");
+            }
             i++;
         }
 
