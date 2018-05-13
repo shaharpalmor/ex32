@@ -11,6 +11,10 @@
 #define NAME 17
 #define FAIL -1
 #define STUDENTS FILENAME_MAX
+#define STDERR 2
+#define ERROR "Error in system call\n"
+#define SIZEERROR 21
+
 
 
 typedef struct Student {
@@ -19,8 +23,12 @@ typedef struct Student {
     char resultCompare[NAME];
 } Student;
 
-
-void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path, struct dirent *pDirent) {
+/**
+ * this function read from the file all the prarms
+ * @param info is the array that will hold all the params
+ * @param path of the configuration file that should be opened.
+ */
+void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path) {
     DIR *pDir;
     int i = 0;
     int length = 0;
@@ -46,8 +54,12 @@ void makeConfigurationFile(char info[CONFIGURATION][STUDENTS], char *path, struc
     }
 }
 
-
-void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
+/**
+ * this functions send the two txt files to the program from the last assignment to check how equal are they.
+ * @param outputFile is the out put file that i wrote to after gcc and a.out
+ * @param oneStudent is the current student that i am checking.
+ */
+void compareFiles(char *outputFile, Student *oneStudent) {
     pid_t pid;
     pid = fork();
     char *outPutFileTxt;
@@ -62,8 +74,13 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
     } else {
         int result;
         waitpid(pid, &result, 0);
-        result = WEXITSTATUS(result);
-        switch (result) {
+        //result = WEXITSTATUS(result);
+        switch (WEXITSTATUS(result)) {
+            case 0:{
+                oneStudent->grade = 60;
+                strcpy(oneStudent->resultCompare, "BAD_OUTPUT");
+                break;
+            }
             case 1: {
                 oneStudent->grade = 60;
                 strcpy(oneStudent->resultCompare, "BAD_OUTPUT");
@@ -87,50 +104,73 @@ void compareFiles(char *correctOutput, char *outputFile, Student *oneStudent) {
 
 }
 
+/**
+ * this function run the program after compiling it.
+ * @param path is the path of the exe file
+ * @param inputFile is the input for the program
+ * @param outputFile is the out put file that we write to
+ * @param oneStudent is the current dtudent to handle.
+ */
 void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent) {
-    char *outPutFileTxt;
     int in, out;
     in = open(inputFile, O_RDWR);
     out = open("myFile.txt", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
     if (in == FAIL || out == FAIL) {
-        fprintf(stderr, "Can not open the input/output files");
+        write(STDERR, ERROR, SIZEERROR);
         exit(FAIL);
     }
     //set the inputFile is the input for the cFile, as well as the output cFile
     if (dup2(in, 0) == FAIL) {
-        fprintf(stderr, "ERROR IN SYSTEM CALL");
+        write(STDERR, ERROR, SIZEERROR);
         exit(FAIL);
     }
 
     if (dup2(out, 1) == FAIL) {
-        fprintf(stderr, "ERROR IN SYSTEM CALL");
+        write(STDERR, ERROR, SIZEERROR);
         exit(FAIL);
     }
     pid_t pid;
     char *arguments[NAME];
     arguments[0] = "./a.out";
     arguments[1] = NULL;
+    //TODO check fork every where!@#$!%#@^%^#@#@$%
     pid = fork();
 
     if (pid == 0) {
         if (execvp(arguments[0], arguments) == FAIL) {
-            fprintf(stderr, "Can not run the exe");
+            write(STDERR, ERROR, SIZEERROR);
             exit(FAIL);
         }
     } else {// fathers process
+        sleep(5);
         pid_t pidProcess = waitpid(pid, NULL, WNOHANG);
+        if (!pidProcess) {
+            //TODO check name of the time out maybe use the strtok
+
+            oneStudent->grade = 0;
+            strcpy(oneStudent->resultCompare, "TIMEOUT");
+        }
         if (pidProcess == FAIL)
-            fprintf(stderr, "Can not compile this c file");
-        compareFiles(outPutFileTxt, outputFile, oneStudent);
+            write(STDERR, ERROR, SIZEERROR);
+        compareFiles(outputFile, oneStudent);
     }
-//TODO check how to gwt a run time error
+    close(in);
+    close(out);
 }
 
 
+/**
+ * thi function compile the c file after finding out that there is a c file.
+ * @param cFile is the path for the c file.
+ * @param inputFile is the input for the program
+ * @param outputFile is the out put file that we write to
+ * @param path is the path of the file
+ * @param oneStudent is the current dtudent to handle.
+ */
 void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student *oneStudent) {
     int in, out;
     char *arguments[3];
-
+    char upDirectory[STUDENTS];
     arguments[0] = "gcc";
     arguments[1] = cFile;
     arguments[2] = NULL;
@@ -138,27 +178,50 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
     pid = fork();
     if (pid == 0) {
         int result = execvp(arguments[0], arguments);
-        if (result == FAIL) {
-            oneStudent->grade = 0;
-            strcpy(oneStudent->resultCompare, "COMPILATION_ERROR");
-            fprintf(stderr, "Can not compile this c file");
-            exit(FAIL);
-        }
+
     } else {// fathers process
         int status;
-        if (waitpid(pid, &status, 0) < 0 || WEXITSTATUS(status) != 0) {
-            //TODO
-            fprintf(stderr, "Can not wait for this c file");
-        }
+        if (waitpid(pid, &status, 0) > 0) {
+            if (WEXITSTATUS(status) != 0) {
 
-        // execute the file we have compiled
-        execute(path, inputFile, outputFile, oneStudent);
+
+                char *studentName = (char *) malloc(FILENAME_MAX * sizeof(char));
+                char *name;
+                strcpy(studentName, cFile);
+                name = strtok(studentName, "/");
+
+                while (name != NULL) {
+                    strcpy(upDirectory, name);
+                    name = strtok(NULL, "/");
+                }
+                strcpy(oneStudent->name, upDirectory);
+                oneStudent->grade = 0;
+                strcpy(oneStudent->resultCompare, "COMPILATION_ERROR");
+                //write(STDERR, ERROR, SIZEERROR);
+                free(studentName);
+                return;
+            }
+        }else{
+            write(STDERR, ERROR, SIZEERROR);
+            exit(FAIL);
+        }
     }
 
-
+    // execute the file we have compiled
+    execute(path, inputFile, outputFile, oneStudent);
 }
 
-
+/**
+ * this is a recursive funtion that handels each file and each directory. it finds out if there is a c file
+ * and than sends it to the compile function and so on or it finds out that there is no c file and continues to the next student.
+ * @param directoryName is the path of the current directory.
+ * @param inputFile is the input for the program
+ * @param outputFile is the out put file that we write to
+ * @param path is the path of the file
+ * @param oneStudent is the current dtudent to handle.
+ * @param i the number of the student in the strudents array
+ * @return integer to find out if there was a c file
+ */
 int
 handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile, char *path, Student *student, int i) {
     struct dirent *pDirent;
@@ -193,9 +256,8 @@ handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile,
 
         } else if (pDirent->d_type == DT_REG) {
             int nameLength = strlen(pDirent->d_name);
-            //char *a = pDirent->d_name; //TODO delete
             if ((pDirent->d_name[nameLength - 1] == 'c') && (pDirent->d_name[nameLength - 2] == '.')) {
-                char *studentName = (char *)malloc(FILENAME_MAX * sizeof(char));
+                char *studentName = (char *) malloc(FILENAME_MAX * sizeof(char));
                 char *name;
                 strcpy(studentName, directoryName);
                 name = strtok(studentName, "/");
@@ -215,18 +277,23 @@ handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile,
             // it is not a c file and we ended up in a directory
         }
     }
+    closedir(pDir);
     return 0;
 }
 
-
+/**
+ * makes the result file containing the info of each student
+ * @param students is the students array
+ * @param numOfStudents is the number of students.
+ */
 void makeResultCSVFile(Student **students, int numOfStudents) {
     int index;
-    int fdCsv = open("results.csv", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+    int fdCsv = open("results.csv", O_WRONLY | O_TRUNC | O_CREAT , S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
     if (fdCsv == FAIL) {
-        fprintf(stderr, "Can not create result.csv file");
+        write(STDERR, ERROR, SIZEERROR);
         exit(FAIL);
     } else {
-        dup2(fdCsv, 1);
+        int r = dup2(fdCsv, 1);
         char line[STUDENTS] = {'\0'};
         for (index = 0; index < numOfStudents; index++) {
             //memset(line, '\0', STUDENTS);
@@ -255,7 +322,7 @@ int main(int argc, char **argv) {
         int numOfStudents = 0;
         int i = 0;
         int j;
-        makeConfigurationFile(info, argv[1], pDirent);
+        makeConfigurationFile(info, argv[1]);
 
         dir = info[0];
         inputFile = info[1];
@@ -288,7 +355,7 @@ int main(int argc, char **argv) {
         for (j = 0; j < i; j++) {
             free(students[j]);
         }
-
+        closedir(pDir);
         return 0;
     }
 }
