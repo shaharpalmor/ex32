@@ -63,17 +63,18 @@ void compareFiles(char *outputFile, Student *oneStudent) {
     pid_t pid;
     pid = fork();
     char *outPutFileTxt;
-    char *arguments[NAME];
 
-    arguments[0] = "./comp.out";
-    arguments[1] = outputFile;
-    arguments[2] = "myFile.txt";
-    arguments[3] = NULL;
     if (pid == 0) {
+        char *arguments[NAME];
+
+        arguments[0] = "./comp.out";
+        arguments[1] = outputFile;
+        arguments[2] = "myFile.txt";
+        arguments[3] = NULL;
         execvp(arguments[0], arguments);
     } else {
         int result;
-        waitpid(pid, &result, 0);
+        waitpid(pid, &result, WCONTINUED);
         //result = WEXITSTATUS(result);
         switch (WEXITSTATUS(result)) {
             case 0:{
@@ -190,7 +191,7 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
                 strcpy(studentName, cFile);
                 name = strtok(studentName, "/");
 
-                while (name != NULL) {
+                while ((name = strtok(NULL, "/") ) != NULL) {
                     strcpy(upDirectory, name);
                     name = strtok(NULL, "/");
                 }
