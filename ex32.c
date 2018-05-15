@@ -174,8 +174,10 @@ void compile(char *cFile, char *inputFile, char *outputFile, char *path, Student
     char *arguments[3];
     char upDirectory[STUDENTS];
     arguments[0] = "gcc";
-    arguments[1] = cFile;
-    arguments[2] = NULL;
+    arguments[1] = "-o";
+    arguments[2] = "temp.out";
+    arguments[3] = cFile;
+    arguments[4] = NULL;
     pid_t pid;
     pid = fork();
     if (pid == 0) {
