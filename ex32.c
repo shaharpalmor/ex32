@@ -75,7 +75,7 @@ void compareFiles(char *outputFile, Student *oneStudent) {
     } else {
         int result;
         waitpid(pid, &result, WCONTINUED);
-        //result = WEXITSTATUS(result);
+
         switch (WEXITSTATUS(result)) {
             case 0:{
                 oneStudent->grade = 60;
@@ -150,6 +150,7 @@ void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent)
 
             oneStudent->grade = 0;
             strcpy(oneStudent->resultCompare, "TIMEOUT");
+            return;
         }
         if (pidProcess == FAIL)
             write(STDERR, ERROR, SIZEERROR);
