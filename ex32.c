@@ -296,12 +296,10 @@ void makeResultCSVFile(Student **students, int numOfStudents) {
         int r = dup2(fdCsv, 1);
         char line[STUDENTS] = {'\0'};
         for (index = 0; index < numOfStudents; index++) {
-            //memset(line, '\0', STUDENTS);
             printf("%s,%d,%s\n", students[index]->name, students[index]->grade,
                    students[index]->resultCompare);
         }
 
-        //write(fdCsv, line, STUDENTS);
         close(fdCsv);
     }
 }
@@ -339,7 +337,6 @@ int main(int argc, char **argv) {
             strcpy(tempDir, info[0]);
             strcat(tempDir, "/");
             strcat(tempDir, pDirent->d_name);
-            //strcpy(students[i]->name,'\0');
             students[i] = (Student *) malloc(sizeof(Student));
             int wasCFile = handleDirectory(tempDir, info[1], info[2], path, students[i], i);
             if (!wasCFile) {
@@ -355,6 +352,8 @@ int main(int argc, char **argv) {
         for (j = 0; j < i; j++) {
             free(students[j]);
         }
+        unlink("temp.out");
+        unlink("myFile.txt");
         closedir(pDir);
         return 0;
     }
