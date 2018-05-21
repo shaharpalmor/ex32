@@ -132,9 +132,8 @@ void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent)
     }
     pid_t pid;
     char *arguments[NAME];
-    arguments[0] = "./a.out";
+    arguments[0] = "./temp.out";
     arguments[1] = NULL;
-    //TODO check fork every where!@#$!%#@^%^#@#@$%
     pid = fork();
 
     if (pid == 0) {
@@ -146,7 +145,6 @@ void execute(char *path, char *inputFile, char *outputFile, Student *oneStudent)
         sleep(5);
         pid_t pidProcess = waitpid(pid, NULL, WNOHANG);
         if (!pidProcess) {
-            //TODO check name of the time out maybe use the strtok
 
             oneStudent->grade = 0;
             strcpy(oneStudent->resultCompare, "TIMEOUT");
@@ -234,8 +232,8 @@ handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile,
     int length = 0;
 
     char insideDir[STUDENTS], upDirectory[STUDENTS];
-    char *pInsideDir = insideDir, *pUpDirectory = upDirectory; //TODO delete
-    if ((pDir = opendir(directoryName)) == NULL) // TODO closedir
+    char *pInsideDir = insideDir, *pUpDirectory = upDirectory;
+    if ((pDir = opendir(directoryName)) == NULL)
         exit(1);
 
     while (directoryName[length] != '\0') {
@@ -256,8 +254,6 @@ handleDirectory(char directoryName[STUDENTS], char *inputFile, char *outputFile,
             int res = handleDirectory(insideDir, inputFile, outputFile, directoryName, student, i);
             if (res)
                 return 1;
-            //TODO one finding it is a directory - update the details get to the else some how
-
         } else if (pDirent->d_type == DT_REG) {
             int nameLength = strlen(pDirent->d_name);
             if ((pDirent->d_name[nameLength - 1] == 'c') && (pDirent->d_name[nameLength - 2] == '.')) {
